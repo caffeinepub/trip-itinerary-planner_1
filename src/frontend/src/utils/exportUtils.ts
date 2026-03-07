@@ -12,81 +12,111 @@ function formatRow(entry: TripEntry) {
   };
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export async function exportToPDF(entries: TripEntry[]): Promise<void> {
-  const { default: jsPDF } = await import("jspdf");
-  const { default: autoTable } = await import("jspdf-autotable");
+  const rows = entries.map((e) => formatRow(e));
+  const exportDate = new Date().toLocaleDateString("en-GB");
 
-  const doc = new jsPDF({ orientation: "landscape" });
+  const tableRows = rows
+    .map(
+      (r, i) => `
+    <tr style="background:${i % 2 === 0 ? "#f8f4ec" : "#ffffff"}">
+      <td style="padding:8px 10px;border:1px solid #ddd;font-size:12px">${escapeHtml(r.place)}</td>
+      <td style="padding:8px 10px;border:1px solid #ddd;font-size:12px">${escapeHtml(r.date)}</td>
+      <td style="padding:8px 10px;border:1px solid #ddd;font-size:12px">${escapeHtml(r.time)}</td>
+      <td style="padding:8px 10px;border:1px solid #ddd;font-size:12px">${escapeHtml(r.transport)}</td>
+      <td style="padding:8px 10px;border:1px solid #ddd;font-size:12px">${escapeHtml(r.description)}</td>
+    </tr>`,
+    )
+    .join("");
 
-  // Title
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.setTextColor(40, 80, 80);
-  doc.text("Trip Itinerary", 14, 18);
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Trip Itinerary</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; color: #333; }
+    h1 { color: #286060; font-size: 22px; margin-bottom: 4px; }
+    .subtitle { color: #786450; font-size: 12px; margin-bottom: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th { background:#286464; color:#fff; padding:8px 10px; font-size:11px; text-align:left; border:1px solid #286464; }
+    @media print { body { margin: 15px; } }
+  </style>
+</head>
+<body>
+  <h1>Trip Itinerary</h1>
+  <p class="subtitle">Exported on ${exportDate}</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Place</th><th>Date</th><th>Time</th><th>Transport</th><th>Description</th>
+      </tr>
+    </thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+</body>
+</html>`;
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(120, 100, 80);
-  doc.text(`Exported on ${new Date().toLocaleDateString("en-GB")}`, 14, 26);
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
 
-  const rows = entries.map((e) => {
-    const r = formatRow(e);
-    return [r.place, r.date, r.time, r.transport, r.description];
-  });
-
-  autoTable(doc, {
-    startY: 32,
-    head: [["Place", "Date", "Time", "Transport", "Description"]],
-    body: rows,
-    headStyles: {
-      fillColor: [40, 100, 100],
-      textColor: [255, 255, 255],
-      fontStyle: "bold",
-      fontSize: 10,
-    },
-    bodyStyles: {
-      fontSize: 9,
-      textColor: [50, 40, 30],
-    },
-    alternateRowStyles: {
-      fillColor: [248, 244, 236],
-    },
-    columnStyles: {
-      0: { cellWidth: 45 },
-      1: { cellWidth: 40 },
-      2: { cellWidth: 22 },
-      3: { cellWidth: 32 },
-      4: { cellWidth: "auto" },
-    },
-    margin: { left: 14, right: 14 },
-  });
-
-  doc.save("trip-itinerary.pdf");
+  const printWindow = window.open(url, "_blank");
+  if (printWindow) {
+    printWindow.addEventListener("load", () => {
+      printWindow.print();
+      // Revoke after a delay to allow print dialog
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    });
+  } else {
+    // Fallback: download as HTML file
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "trip-itinerary.html";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 }
 
 export async function exportToExcel(entries: TripEntry[]): Promise<void> {
-  const XLSX = await import("xlsx");
+  const rows = entries.map((e) => formatRow(e));
 
-  const data = [
-    ["Place", "Date", "Time", "Transport", "Description"],
-    ...entries.map((e) => {
-      const r = formatRow(e);
-      return [r.place, r.date, r.time, r.transport, r.description];
-    }),
+  // Build a CSV file (opens in Excel)
+  const headers = ["Place", "Date", "Time", "Transport", "Description"];
+  const csvRows = [
+    headers,
+    ...rows.map((r) => [r.place, r.date, r.time, r.transport, r.description]),
   ];
 
-  const ws = XLSX.utils.aoa_to_sheet(data);
+  const csvContent = csvRows
+    .map((row) =>
+      row
+        .map((cell) => {
+          // Quote cells that contain commas, quotes, or newlines
+          const str = String(cell).replace(/"/g, '""');
+          return /[,"\n\r]/.test(str) ? `"${str}"` : str;
+        })
+        .join(","),
+    )
+    .join("\r\n");
 
-  // Column widths
-  ws["!cols"] = [
-    { wch: 30 },
-    { wch: 22 },
-    { wch: 10 },
-    { wch: 18 },
-    { wch: 60 },
-  ];
+  // BOM for Excel UTF-8 compatibility
+  const bom = "\uFEFF";
+  const blob = new Blob([bom + csvContent], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Itinerary");
-  XLSX.writeFile(wb, "trip-itinerary.xlsx");
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "trip-itinerary.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

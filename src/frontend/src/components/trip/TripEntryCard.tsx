@@ -1,6 +1,15 @@
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, Edit2, MapPin, Trash2 } from "lucide-react";
-import { motion } from "motion/react";
+import {
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Edit2,
+  Images,
+  MapPin,
+  Trash2,
+} from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import type { TripEntry } from "../../backend";
 import { bigIntNsToDate, formatDisplayDate } from "../../utils/dateUtils";
@@ -23,6 +32,7 @@ export function TripEntryCard({
   onDelete,
 }: TripEntryCardProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [photosExpanded, setPhotosExpanded] = useState(false);
   const date = bigIntNsToDate(entry.visitDate);
   const formattedDate = formatDisplayDate(date);
   const imageUrls = entry.imageIds.map((img) => img.getDirectURL());
@@ -108,27 +118,60 @@ export function TripEntryCard({
             </p>
           )}
 
-          {/* Image strip */}
+          {/* Photos toggle + expanded grid */}
           {imageUrls.length > 0 && (
-            <div className="mt-4 flex gap-2 overflow-x-auto scrollbar-thin pb-1">
-              {imageUrls.map((url, imgIdx) => (
-                <button
-                  // URLs from getDirectURL() are stable per blob
-                  // biome-ignore lint/suspicious/noArrayIndexKey: image list is stable per entry
-                  key={imgIdx}
-                  type="button"
-                  className="flex-shrink-0 w-20 h-16 rounded-md overflow-hidden ring-2 ring-transparent hover:ring-terracotta transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
-                  onClick={() => setLightboxIndex(imgIdx)}
-                  title={`View ${imgIdx + 1} of ${imageUrls.length}`}
-                >
-                  <img
-                    src={url}
-                    alt={`${entry.placeName} view ${imgIdx + 1}`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                </button>
-              ))}
+            <div className="mt-3">
+              <Button
+                data-ocid={`entry.toggle.${markerIdx}`}
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="flex items-center gap-1.5 text-sm font-medium text-teal hover:text-teal/80 hover:bg-teal/10 px-2 h-8 -ml-2"
+                onClick={() => setPhotosExpanded((v) => !v)}
+              >
+                <Images className="w-4 h-4" />
+                {photosExpanded
+                  ? "Hide Photos"
+                  : `Show Photos (${imageUrls.length})`}
+                {photosExpanded ? (
+                  <ChevronUp className="w-3.5 h-3.5 ml-0.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5 ml-0.5" />
+                )}
+              </Button>
+
+              <AnimatePresence initial={false}>
+                {photosExpanded && (
+                  <motion.div
+                    key="photos"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {imageUrls.map((url, imgIdx) => (
+                        <button
+                          // biome-ignore lint/suspicious/noArrayIndexKey: image list is stable per entry
+                          key={imgIdx}
+                          type="button"
+                          className="relative aspect-[4/3] rounded-lg overflow-hidden ring-2 ring-transparent hover:ring-terracotta transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                          onClick={() => setLightboxIndex(imgIdx)}
+                          title={`View photo ${imgIdx + 1} of ${imageUrls.length}`}
+                        >
+                          <img
+                            src={url}
+                            alt={`${entry.placeName} view ${imgIdx + 1}`}
+                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
         </div>
