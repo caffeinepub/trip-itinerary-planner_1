@@ -1,0 +1,181 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Bricolage Grotesque - Display */
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/assets/fonts/BricolageGrotesque[opsz,wdth,wght].woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Satoshi - Body */
+@font-face {
+  font-family: "Satoshi";
+  src: url("/assets/fonts/Satoshi-Variable.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.75rem;
+
+    /* Travel Journal Palette — Terracotta + Deep Teal + Warm Cream */
+    --background: 0.97 0.012 75;
+    --foreground: 0.22 0.04 30;
+
+    --card: 0.99 0.008 80;
+    --card-foreground: 0.22 0.04 30;
+
+    --popover: 0.99 0.008 80;
+    --popover-foreground: 0.22 0.04 30;
+
+    /* Primary: Deep Teal */
+    --primary: 0.38 0.1 195;
+    --primary-foreground: 0.98 0.005 90;
+
+    /* Secondary: Warm Sand */
+    --secondary: 0.92 0.025 75;
+    --secondary-foreground: 0.28 0.06 35;
+
+    /* Muted */
+    --muted: 0.93 0.018 72;
+    --muted-foreground: 0.52 0.03 55;
+
+    /* Accent: Terracotta */
+    --accent: 0.62 0.18 38;
+    --accent-foreground: 0.98 0.005 90;
+
+    /* Destructive */
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+
+    /* Borders */
+    --border: 0.86 0.03 65;
+    --input: 0.88 0.025 68;
+    --ring: 0.38 0.1 195;
+
+    /* Charts */
+    --chart-1: 0.62 0.18 38;
+    --chart-2: 0.38 0.1 195;
+    --chart-3: 0.72 0.15 55;
+    --chart-4: 0.45 0.12 160;
+    --chart-5: 0.55 0.16 25;
+
+    /* Sidebar */
+    --sidebar: 0.95 0.018 75;
+    --sidebar-foreground: 0.22 0.04 30;
+    --sidebar-primary: 0.38 0.1 195;
+    --sidebar-primary-foreground: 0.98 0.005 90;
+    --sidebar-accent: 0.88 0.025 72;
+    --sidebar-accent-foreground: 0.28 0.06 35;
+    --sidebar-border: 0.86 0.03 65;
+    --sidebar-ring: 0.38 0.1 195;
+
+    /* Custom tokens */
+    --terracotta: 0.62 0.18 38;
+    --teal: 0.38 0.1 195;
+    --teal-light: 0.72 0.08 190;
+    --sand: 0.92 0.025 75;
+    --warm-white: 0.99 0.008 80;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Satoshi", system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  }
+
+  .font-body {
+    font-family: "Satoshi", system-ui, sans-serif;
+  }
+
+  .text-terracotta {
+    color: oklch(var(--terracotta));
+  }
+
+  .bg-terracotta {
+    background-color: oklch(var(--terracotta));
+  }
+
+  .text-teal {
+    color: oklch(var(--teal));
+  }
+
+  .bg-teal {
+    background-color: oklch(var(--teal));
+  }
+
+  .bg-teal-light {
+    background-color: oklch(var(--teal-light));
+  }
+
+  /* Paper texture overlay */
+  .paper-texture {
+    position: relative;
+  }
+
+  .paper-texture::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    border-radius: inherit;
+    z-index: 0;
+  }
+
+  /* Postcard card style */
+  .postcard {
+    background: oklch(var(--warm-white));
+    border: 1px solid oklch(var(--border));
+    border-radius: 0.75rem;
+    box-shadow:
+      0 1px 3px oklch(var(--foreground) / 0.06),
+      0 4px 16px oklch(var(--foreground) / 0.06),
+      0 1px 0 oklch(var(--terracotta) / 0.12) inset;
+  }
+
+  /* Scrollbar */
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 4px;
+    width: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: oklch(var(--border));
+    border-radius: 2px;
+  }
+
+  /* Line clamp */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
