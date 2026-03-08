@@ -11,6 +11,14 @@ import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
 export type ExternalBlob = Uint8Array;
+export interface TripDocument {
+  'id' : bigint,
+  'title' : string,
+  'note' : string,
+  'createdAt' : bigint,
+  'fileId' : ExternalBlob,
+  'docDate' : bigint,
+}
 export interface TripEntry {
   'id' : bigint,
   'placeName' : string,
@@ -56,13 +64,19 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'createDocument' : ActorMethod<
+    [string, bigint, string, ExternalBlob],
+    TripDocument
+  >,
   'createEntry' : ActorMethod<
     [string, bigint, string, string, string, Array<ExternalBlob>],
     TripEntry
   >,
+  'deleteDocument' : ActorMethod<[bigint], undefined>,
   'deleteEntry' : ActorMethod<[bigint], undefined>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getDocuments' : ActorMethod<[], Array<TripDocument>>,
   'getEntries' : ActorMethod<[], Array<TripEntry>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,

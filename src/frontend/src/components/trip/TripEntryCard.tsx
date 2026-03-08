@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Compass,
   Edit2,
   Images,
   MapPin,
@@ -12,24 +13,28 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import type { TripEntry } from "../../backend";
-import { bigIntNsToDate, formatDisplayDate } from "../../utils/dateUtils";
+import {
+  bigIntNsToDate,
+  formatDisplayDate,
+  formatDisplayTime,
+} from "../../utils/dateUtils";
 import { ImageLightbox } from "./ImageLightbox";
 import { TransportBadge } from "./TransportBadge";
 
 interface TripEntryCardProps {
   entry: TripEntry;
   index: number;
-  isAdmin: boolean;
   onEdit: (entry: TripEntry) => void;
   onDelete: (entry: TripEntry) => void;
+  onGuide: () => void;
 }
 
 export function TripEntryCard({
   entry,
   index,
-  isAdmin,
   onEdit,
   onDelete,
+  onGuide,
 }: TripEntryCardProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [photosExpanded, setPhotosExpanded] = useState(false);
@@ -78,15 +83,28 @@ export function TripEntryCard({
                 {entry.visitTime && (
                   <span className="flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5" />
-                    {entry.visitTime}
+                    {formatDisplayTime(entry.visitTime)}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Admin actions */}
-            {isAdmin && (
-              <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Entry actions */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* Guide button — always visible */}
+              <Button
+                data-ocid={`entry.guide_button.${markerIdx}`}
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-teal hover:text-teal/80 hover:bg-teal/10"
+                onClick={onGuide}
+                title="Open trip guide"
+              >
+                <Compass className="w-4 h-4" />
+              </Button>
+
+              {/* Edit & Delete — hover-only */}
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Button
                   data-ocid={`entry.edit_button.${markerIdx}`}
                   size="icon"
@@ -108,7 +126,7 @@ export function TripEntryCard({
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Description */}

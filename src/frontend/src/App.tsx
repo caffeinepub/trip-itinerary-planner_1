@@ -4,76 +4,35 @@ import { Toaster } from "@/components/ui/sonner";
 import {
   FileDown,
   FileSpreadsheet,
+  FileText,
   Loader2,
-  LogIn,
-  LogOut,
   MapPin,
   Plus,
   Share2,
-  ShieldCheck,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { useQueryClient } from "@tanstack/react-query";
 import type { TripEntry } from "./backend";
 import { DeleteConfirmDialog } from "./components/trip/DeleteConfirmDialog";
 import { EntryForm } from "./components/trip/EntryForm";
-import { ProfileSetupDialog } from "./components/trip/ProfileSetupDialog";
+import { TripDocumentsSheet } from "./components/trip/TripDocumentsSheet";
 import { TripEntryCard } from "./components/trip/TripEntryCard";
-import { useInternetIdentity } from "./hooks/useInternetIdentity";
-import {
-  useGetCallerUserProfile,
-  useGetEntries,
-  useIsAdmin,
-} from "./hooks/useQueries";
+import { TripGuideSheet } from "./components/trip/TripGuideSheet";
+import { useGetEntries } from "./hooks/useQueries";
 import { exportToExcel, exportToPDF } from "./utils/exportUtils";
 
 export default function App() {
-  const { login, clear, loginStatus, identity, isInitializing } =
-    useInternetIdentity();
-  const queryClient = useQueryClient();
-
-  const isAuthenticated = !!identity;
-  const isLoggingIn = loginStatus === "logging-in";
-
   const { data: entries = [], isLoading: entriesLoading } = useGetEntries();
-  const { data: isAdmin = false } = useIsAdmin();
-  const {
-    data: userProfile,
-    isLoading: profileLoading,
-    isFetched: profileFetched,
-  } = useGetCallerUserProfile();
-
-  const showProfileSetup =
-    isAuthenticated &&
-    !profileLoading &&
-    profileFetched &&
-    userProfile === null;
 
   const [addFormOpen, setAddFormOpen] = useState(false);
   const [editEntry, setEditEntry] = useState<TripEntry | null>(null);
   const [deleteEntry, setDeleteEntry] = useState<TripEntry | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
-
-  const handleAuth = async () => {
-    if (isAuthenticated) {
-      await clear();
-      queryClient.clear();
-    } else {
-      try {
-        await login();
-      } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : "Login failed";
-        if (msg === "User is already authenticated") {
-          await clear();
-          setTimeout(() => login(), 300);
-        }
-      }
-    }
-  };
+  const [documentsOpen, setDocumentsOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const handleExportPDF = async () => {
     if (!entries.length) {
@@ -118,9 +77,6 @@ export default function App() {
     <div className="min-h-screen bg-background flex flex-col font-body">
       <Toaster richColors position="top-right" />
 
-      {/* Profile Setup */}
-      <ProfileSetupDialog open={showProfileSetup} />
-
       {/* Delete Confirm */}
       <DeleteConfirmDialog
         entry={deleteEntry}
@@ -135,6 +91,19 @@ export default function App() {
           setAddFormOpen(false);
           setEditEntry(null);
         }}
+      />
+
+      {/* Trip Documents Sheet */}
+      <TripDocumentsSheet
+        open={documentsOpen}
+        onClose={() => setDocumentsOpen(false)}
+      />
+
+      {/* Trip Guide Sheet */}
+      <TripGuideSheet
+        open={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        entries={entries}
       />
 
       {/* ===== HEADER ===== */}
@@ -161,18 +130,7 @@ export default function App() {
               <h1 className="font-display font-bold text-2xl sm:text-3xl tracking-tight leading-tight">
                 Trip Itinerary
               </h1>
-              {userProfile?.name && (
-                <p className="text-white/70 text-sm">
-                  {userProfile.name}&apos;s Journey
-                </p>
-              )}
             </div>
-            {isAdmin && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-white text-xs font-medium ml-1">
-                <ShieldCheck className="w-3 h-3" />
-                Admin
-              </span>
-            )}
           </div>
 
           {/* Action buttons */}
@@ -223,36 +181,17 @@ export default function App() {
               Excel
             </Button>
 
-            {/* Auth */}
-            {isInitializing ? (
-              <div className="w-24 h-8 bg-white/20 rounded-md animate-pulse" />
-            ) : isAuthenticated ? (
-              <Button
-                data-ocid="auth.logout_button"
-                size="sm"
-                variant="ghost"
-                className="text-white hover:bg-white/20 border border-white/30"
-                onClick={handleAuth}
-              >
-                <LogOut className="w-4 h-4 mr-1.5" />
-                Logout
-              </Button>
-            ) : (
-              <Button
-                data-ocid="auth.login_button"
-                size="sm"
-                className="bg-white text-teal hover:bg-white/90 font-medium"
-                onClick={handleAuth}
-                disabled={isLoggingIn}
-              >
-                {isLoggingIn ? (
-                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                ) : (
-                  <LogIn className="w-4 h-4 mr-1.5" />
-                )}
-                {isLoggingIn ? "Logging in..." : "Login"}
-              </Button>
-            )}
+            {/* Trip Documents */}
+            <Button
+              data-ocid="header.documents_button"
+              size="sm"
+              variant="ghost"
+              className="text-white hover:bg-white/20 border border-white/30"
+              onClick={() => setDocumentsOpen(true)}
+            >
+              <FileText className="w-4 h-4 mr-1.5" />
+              Documents
+            </Button>
           </div>
         </div>
 
@@ -293,9 +232,9 @@ export default function App() {
                   key={String(entry.id)}
                   entry={entry}
                   index={index}
-                  isAdmin={isAdmin}
                   onEdit={setEditEntry}
                   onDelete={setDeleteEntry}
+                  onGuide={() => setGuideOpen(true)}
                 />
               ))}
             </AnimatePresence>
@@ -320,26 +259,23 @@ export default function App() {
               No adventures planned yet
             </h2>
             <p className="text-muted-foreground max-w-xs mb-6">
-              {isAdmin
-                ? "Start building your dream itinerary by adding your first destination."
-                : "Log in as admin to start planning your trip."}
+              Start building your dream itinerary by adding your first
+              destination.
             </p>
-            {isAdmin && (
-              <Button
-                data-ocid="add_entry.open_modal_button"
-                className="bg-teal text-white hover:bg-teal/90"
-                onClick={() => setAddFormOpen(true)}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add First Entry
-              </Button>
-            )}
+            <Button
+              data-ocid="add_entry.open_modal_button"
+              className="bg-teal text-white hover:bg-teal/90"
+              onClick={() => setAddFormOpen(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add First Entry
+            </Button>
           </motion.div>
         )}
       </main>
 
       {/* ===== FLOATING ADD BUTTON ===== */}
-      {isAdmin && entries.length > 0 && (
+      {entries.length > 0 && (
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}

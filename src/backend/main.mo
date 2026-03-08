@@ -1,21 +1,23 @@
 import Int "mo:core/Int";
 import Nat "mo:core/Nat";
-import Array "mo:core/Array";
-import Time "mo:core/Time";
 import Map "mo:core/Map";
-import Principal "mo:core/Principal";
-import Iter "mo:core/Iter";
-import Runtime "mo:core/Runtime";
+import Time "mo:core/Time";
+import Array "mo:core/Array";
 import Order "mo:core/Order";
-import MixinAuthorization "authorization/MixinAuthorization";
-import AccessControl "authorization/access-control";
+import Principal "mo:core/Principal";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
+import Iter "mo:core/Iter";
+import Runtime "mo:core/Runtime";
+import MixinAuthorization "authorization/MixinAuthorization";
+import AccessControl "authorization/access-control";
+
+
 
 actor {
   include MixinStorage();
 
-  // Initialize the user system state
+  // Authorization state
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
@@ -26,25 +28,19 @@ actor {
 
   let userProfiles = Map.empty<Principal, UserProfile>();
 
+  public query func getUserProfile(_user : Principal) : async ?UserProfile {
+    null;
+  };
+
+  public shared ({ caller }) func saveCallerUserProfile(_profile : UserProfile) : async () {
+    Runtime.trap("Users cannot be saved in this project yet. It is only a feature placeholder.");
+  };
+
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can access profiles");
     };
     userProfiles.get(caller);
-  };
-
-  public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Can only view your own profile");
-    };
-    userProfiles.get(user);
-  };
-
-  public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
-    };
-    userProfiles.add(caller, profile);
   };
 
   // Trip Entry Types and Data
@@ -72,10 +68,23 @@ actor {
     updatedAt : Int;
   };
 
-  let entries = Map.empty<Nat, TripEntry>();
-  var nextId : Nat = 0;
+  // Trip Document Type
+  public type TripDocument = {
+    id : Nat;
+    title : Text;
+    docDate : Nat;
+    note : Text;
+    fileId : Storage.ExternalBlob;
+    createdAt : Int;
+  };
 
-  // Helper function to compare trip entries for sorting
+  let entries = Map.empty<Nat, TripEntry>();
+  var nextEntryId : Nat = 0;
+
+  let documents = Map.empty<Nat, TripDocument>();
+  var nextDocId : Nat = 0;
+
+  // Compare TripEntries for sorting
   func compareTripEntries(a : TripEntry, b : TripEntry) : Order.Order {
     switch (Nat.compare(a.visitDate, b.visitDate)) {
       case (#equal) { Nat.compare(a.order, b.order) };
@@ -83,7 +92,12 @@ actor {
     };
   };
 
-  // CRUD Operations for Trip Entries
+  // Compare TripDocuments by docDate
+  func compareTripDocumentsByDate(a : TripDocument, b : TripDocument) : Order.Order {
+    Nat.compare(a.docDate, b.docDate);
+  };
+
+  // CRUD for Trip Entries
 
   public shared ({ caller }) func createEntry(
     placeName : Text,
@@ -93,12 +107,12 @@ actor {
     transportMode : Text,
     imageIds : [Storage.ExternalBlob],
   ) : async TripEntry {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can create entries");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can create entries");
     };
 
-    let id = nextId;
-    nextId += 1;
+    let id = nextEntryId;
+    nextEntryId += 1;
 
     let entry : TripEntry = {
       id;
@@ -118,7 +132,6 @@ actor {
   };
 
   public query func getEntries() : async [TripEntry] {
-    // No authorization check - anyone can read entries (for sharing)
     let entryArray = Array.fromIter(entries.values());
     entryArray.sort(compareTripEntries);
   };
@@ -132,8 +145,8 @@ actor {
     transportMode : Text,
     imageIds : [Storage.ExternalBlob],
   ) : async TripEntry {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can update entries");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can update entries");
     };
 
     switch (entries.get(id)) {
@@ -158,8 +171,8 @@ actor {
   };
 
   public shared ({ caller }) func deleteEntry(id : Nat) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can delete entries");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete entries");
     };
 
     if (not (entries.containsKey(id))) {
@@ -170,8 +183,8 @@ actor {
   };
 
   public shared ({ caller }) func reorderEntries(newOrder : [Nat]) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can reorder entries");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can reorder entries");
     };
 
     for (i in newOrder.keys()) {
@@ -195,5 +208,49 @@ actor {
         };
       };
     };
+  };
+
+  // CRUD for Trip Documents
+
+  public shared ({ caller }) func createDocument(
+    title : Text,
+    docDate : Nat,
+    note : Text,
+    fileId : Storage.ExternalBlob,
+  ) : async TripDocument {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can create documents");
+    };
+
+    let id = nextDocId;
+    nextDocId += 1;
+
+    let document : TripDocument = {
+      id;
+      title;
+      docDate;
+      note;
+      fileId;
+      createdAt = Time.now();
+    };
+
+    documents.add(id, document);
+    document;
+  };
+
+  public query func getDocuments() : async [TripDocument] {
+    let docArray = Array.fromIter(documents.values());
+    docArray.sort(compareTripDocumentsByDate);
+  };
+
+  public shared ({ caller }) func deleteDocument(id : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete documents");
+    };
+
+    if (not (documents.containsKey(id))) {
+      Runtime.trap("Document not found");
+    };
+    documents.remove(id);
   };
 };

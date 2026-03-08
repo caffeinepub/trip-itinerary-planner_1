@@ -41,3 +41,20 @@ export function parseDateInput(value: string): Date {
   const [y, m, d] = value.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
+
+/**
+ * Convert "HH:MM" 24h string to "h:MM AM/PM" display format
+ * e.g. "14:30" → "2:30 PM", "09:05" → "9:05 AM"
+ * Returns empty string for empty/null/invalid input.
+ */
+export function formatDisplayTime(time: string): string {
+  if (!time || !time.includes(":")) return "";
+  const [hStr, mStr] = time.split(":");
+  const h = Number.parseInt(hStr, 10);
+  const m = Number.parseInt(mStr, 10);
+  if (Number.isNaN(h) || Number.isNaN(m)) return "";
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  const minutes = String(m).padStart(2, "0");
+  return `${hour12}:${minutes} ${period}`;
+}

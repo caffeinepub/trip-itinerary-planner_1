@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalBlob, type TripEntry, UserRole } from "../backend";
+import {
+  ExternalBlob,
+  type TripDocument,
+  type TripEntry,
+  UserRole,
+} from "../backend";
 import { useActor } from "./useActor";
 
 export function useGetEntries() {
@@ -181,5 +186,69 @@ export function useGetCallerUserRole() {
       return actor.getCallerUserRole();
     },
     enabled: !!actor && !actorFetching,
+  });
+}
+
+// ---- Trip Documents ----
+
+export function useGetDocuments() {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery<TripDocument[]>({
+    queryKey: ["documents"],
+    queryFn: async () => {
+      if (!actor) return [];
+      const docs = await actor.getDocuments();
+      return [...docs].sort((a, b) =>
+        a.docDate < b.docDate ? -1 : a.docDate > b.docDate ? 1 : 0,
+      );
+    },
+    enabled: !!actor && !actorFetching,
+  });
+}
+
+export interface CreateDocumentParams {
+  title: string;
+  docDate: bigint;
+  note: string;
+  file: File;
+  onProgress?: (pct: number) => void;
+}
+
+export function useCreateDocument() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      title,
+      docDate,
+      note,
+      file,
+      onProgress,
+    }: CreateDocumentParams) => {
+      if (!actor) throw new Error("Not authenticated");
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer) as Uint8Array<ArrayBuffer>;
+      const blob = ExternalBlob.fromBytes(bytes).withUploadProgress((pct) =>
+        onProgress?.(pct),
+      );
+      return actor.createDocument(title, docDate, note, blob);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+    },
+  });
+}
+
+export function useDeleteDocument() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: bigint) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.deleteDocument(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+    },
   });
 }

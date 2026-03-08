@@ -25,6 +25,14 @@ export const UserRole = IDL.Variant({
   'guest' : IDL.Null,
 });
 export const ExternalBlob = IDL.Vec(IDL.Nat8);
+export const TripDocument = IDL.Record({
+  'id' : IDL.Nat,
+  'title' : IDL.Text,
+  'note' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'fileId' : ExternalBlob,
+  'docDate' : IDL.Nat,
+});
 export const TripEntry = IDL.Record({
   'id' : IDL.Nat,
   'placeName' : IDL.Text,
@@ -68,14 +76,21 @@ export const idlService = IDL.Service({
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'createDocument' : IDL.Func(
+      [IDL.Text, IDL.Nat, IDL.Text, ExternalBlob],
+      [TripDocument],
+      [],
+    ),
   'createEntry' : IDL.Func(
       [IDL.Text, IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Vec(ExternalBlob)],
       [TripEntry],
       [],
     ),
+  'deleteDocument' : IDL.Func([IDL.Nat], [], []),
   'deleteEntry' : IDL.Func([IDL.Nat], [], []),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getDocuments' : IDL.Func([], [IDL.Vec(TripDocument)], ['query']),
   'getEntries' : IDL.Func([], [IDL.Vec(TripEntry)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
@@ -120,6 +135,14 @@ export const idlFactory = ({ IDL }) => {
     'guest' : IDL.Null,
   });
   const ExternalBlob = IDL.Vec(IDL.Nat8);
+  const TripDocument = IDL.Record({
+    'id' : IDL.Nat,
+    'title' : IDL.Text,
+    'note' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'fileId' : ExternalBlob,
+    'docDate' : IDL.Nat,
+  });
   const TripEntry = IDL.Record({
     'id' : IDL.Nat,
     'placeName' : IDL.Text,
@@ -163,6 +186,11 @@ export const idlFactory = ({ IDL }) => {
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'createDocument' : IDL.Func(
+        [IDL.Text, IDL.Nat, IDL.Text, ExternalBlob],
+        [TripDocument],
+        [],
+      ),
     'createEntry' : IDL.Func(
         [
           IDL.Text,
@@ -175,9 +203,11 @@ export const idlFactory = ({ IDL }) => {
         [TripEntry],
         [],
       ),
+    'deleteDocument' : IDL.Func([IDL.Nat], [], []),
     'deleteEntry' : IDL.Func([IDL.Nat], [], []),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getDocuments' : IDL.Func([], [IDL.Vec(TripDocument)], ['query']),
     'getEntries' : IDL.Func([], [IDL.Vec(TripEntry)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
