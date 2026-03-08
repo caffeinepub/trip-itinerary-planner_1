@@ -4,20 +4,18 @@ import { Toaster } from "@/components/ui/sonner";
 import {
   FileDown,
   FileSpreadsheet,
-  FileText,
   Loader2,
   MapPin,
   Plus,
   Share2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import type { TripEntry } from "./backend";
 import { DeleteConfirmDialog } from "./components/trip/DeleteConfirmDialog";
 import { EntryForm } from "./components/trip/EntryForm";
-import { TripDocumentsSheet } from "./components/trip/TripDocumentsSheet";
 import { TripEntryCard } from "./components/trip/TripEntryCard";
 import { TripGuideSheet } from "./components/trip/TripGuideSheet";
 import { useGetEntries } from "./hooks/useQueries";
@@ -26,12 +24,22 @@ import { exportToExcel, exportToPDF } from "./utils/exportUtils";
 export default function App() {
   const { data: entries = [], isLoading: entriesLoading } = useGetEntries();
 
+  // Register service worker for offline support
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch(() => {
+          // SW registration failed silently — app still works online
+        });
+      });
+    }
+  }, []);
+
   const [addFormOpen, setAddFormOpen] = useState(false);
   const [editEntry, setEditEntry] = useState<TripEntry | null>(null);
   const [deleteEntry, setDeleteEntry] = useState<TripEntry | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
-  const [documentsOpen, setDocumentsOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
 
   const handleExportPDF = async () => {
@@ -91,12 +99,6 @@ export default function App() {
           setAddFormOpen(false);
           setEditEntry(null);
         }}
-      />
-
-      {/* Trip Documents Sheet */}
-      <TripDocumentsSheet
-        open={documentsOpen}
-        onClose={() => setDocumentsOpen(false)}
       />
 
       {/* Trip Guide Sheet */}
@@ -179,18 +181,6 @@ export default function App() {
                 <FileSpreadsheet className="w-4 h-4 mr-1.5" />
               )}
               Excel
-            </Button>
-
-            {/* Trip Documents */}
-            <Button
-              data-ocid="header.documents_button"
-              size="sm"
-              variant="ghost"
-              className="text-white hover:bg-white/20 border border-white/30"
-              onClick={() => setDocumentsOpen(true)}
-            >
-              <FileText className="w-4 h-4 mr-1.5" />
-              Documents
             </Button>
           </div>
         </div>

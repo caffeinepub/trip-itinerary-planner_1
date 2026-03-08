@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, ImagePlus, Loader2, Upload, X } from "lucide-react";
+import { Check, FileText, ImagePlus, Loader2, Upload, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ExternalBlob, TripEntry } from "../../backend";
@@ -28,6 +28,7 @@ import {
   formatInputDate,
   parseDateInput,
 } from "../../utils/dateUtils";
+import { isBlobPdf } from "../../utils/pdfTracker";
 import { TRANSPORT_OPTIONS } from "../../utils/transportConfig";
 
 interface EntryFormProps {
@@ -41,6 +42,8 @@ interface ImagePreview {
   url: string;
   file?: File;
   existing?: ExternalBlob;
+  isPdf?: boolean;
+  fileName?: string;
 }
 
 let previewCounter = 0;
@@ -63,11 +66,19 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
   const [description, setDescription] = useState(editEntry?.description ?? "");
   const [images, setImages] = useState<ImagePreview[]>(() => {
     if (!editEntry) return [];
-    return editEntry.imageIds.map((blob) => ({
-      id: newId(),
-      url: blob.getDirectURL(),
-      existing: blob,
-    }));
+    return editEntry.imageIds.map((blob) => {
+      const directUrl = blob.getDirectURL();
+      const isPdf = isBlobPdf(directUrl);
+      return {
+        id: newId(),
+        url: directUrl,
+        existing: blob,
+        isPdf,
+        fileName: isPdf
+          ? directUrl.split("/").pop() || "PDF Document"
+          : undefined,
+      };
+    });
   });
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>(
     {},
@@ -101,9 +112,17 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
     if (!files) return;
     const newPreviews: ImagePreview[] = [];
     for (const file of Array.from(files)) {
-      if (!file.type.startsWith("image/")) continue;
+      const isImage = file.type.startsWith("image/");
+      const isPdf = file.type === "application/pdf";
+      if (!isImage && !isPdf) continue;
       const url = URL.createObjectURL(file);
-      newPreviews.push({ id: newId(), url, file });
+      newPreviews.push({
+        id: newId(),
+        url,
+        file,
+        isPdf: isPdf || undefined,
+        fileName: isPdf ? file.name : undefined,
+      });
     }
     setImages((prev) => [...prev, ...newPreviews]);
   };
@@ -183,8 +202,13 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
       }
       resetForm();
       onClose();
-    } catch {
-      toast.error("Failed to save entry. Please try again.");
+    } catch (err) {
+      console.error("Save entry error:", err);
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Failed to save entry. Please try again.";
+      toast.error(msg);
     }
   };
 
@@ -202,11 +226,19 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
     setDescription(editEntry?.description ?? "");
     setImages(
       editEntry
-        ? editEntry.imageIds.map((blob) => ({
-            id: newId(),
-            url: blob.getDirectURL(),
-            existing: blob,
-          }))
+        ? editEntry.imageIds.map((blob) => {
+            const directUrl = blob.getDirectURL();
+            const isPdf = isBlobPdf(directUrl);
+            return {
+              id: newId(),
+              url: directUrl,
+              existing: blob,
+              isPdf: isPdf || undefined,
+              fileName: isPdf
+                ? directUrl.split("/").pop() || "PDF Document"
+                : undefined,
+            };
+          })
         : [],
     );
   }
@@ -299,9 +331,9 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
             />
           </div>
 
-          {/* Image Upload */}
+          {/* Image & PDF Upload */}
           <div className="space-y-2">
-            <Label>Photos</Label>
+            <Label>Photos & Documents</Label>
 
             {/* Drop zone — label acts as click target for the hidden file input */}
             <label
@@ -321,34 +353,46 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
             >
               <ImagePlus className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Drag & drop images here, or{" "}
+                Drag & drop files here, or{" "}
                 <span className="text-teal font-medium">click to browse</span>
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                JPG, PNG, WebP supported
+                Images (JPG, PNG, WebP) and PDFs supported
               </p>
               <input
                 id="file-upload"
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,application/pdf"
                 multiple
                 className="hidden"
                 onChange={(e) => addImageFiles(e.target.files)}
               />
             </label>
 
-            {/* Image previews */}
+            {/* File previews */}
             {images.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {images.map((img) => (
                   <div key={img.id} className="relative group">
-                    <img
-                      src={img.url}
-                      alt={`Selected ${img.file ? "new upload" : "existing"}`}
-                      className="w-16 h-16 object-cover rounded-md ring-1 ring-border"
-                    />
-                    {/* Upload progress */}
+                    {img.isPdf ? (
+                      /* PDF preview card */
+                      <div className="w-16 h-16 bg-secondary rounded-md ring-1 ring-border flex flex-col items-center justify-center gap-0.5 px-1">
+                        <FileText className="w-6 h-6 text-terracotta flex-shrink-0" />
+                        <span className="text-[9px] text-muted-foreground leading-tight text-center truncate w-full px-0.5">
+                          {img.fileName
+                            ? img.fileName.replace(/\.pdf$/i, "")
+                            : "PDF"}
+                        </span>
+                      </div>
+                    ) : (
+                      <img
+                        src={img.url}
+                        alt={`Selected ${img.file ? "new upload" : "existing"}`}
+                        className="w-16 h-16 object-cover rounded-md ring-1 ring-border"
+                      />
+                    )}
+                    {/* Upload progress (images and PDFs) */}
                     {img.file &&
                       uploadProgress[img.id] !== undefined &&
                       uploadProgress[img.id] < 100 && (
@@ -371,7 +415,7 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
                       type="button"
                       className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                       onClick={() => removeImage(img.id)}
-                      aria-label="Remove image"
+                      aria-label={img.isPdf ? "Remove PDF" : "Remove image"}
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -379,9 +423,10 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
                 ))}
                 <button
                   type="button"
+                  data-ocid="entry_form.upload_button"
                   className="w-16 h-16 border-2 border-dashed border-border rounded-md flex items-center justify-center text-muted-foreground hover:border-teal hover:text-teal transition-colors"
                   onClick={() => fileInputRef.current?.click()}
-                  aria-label="Add more images"
+                  aria-label="Add more files"
                 >
                   <Upload className="w-5 h-5" />
                 </button>

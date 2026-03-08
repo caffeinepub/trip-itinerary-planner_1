@@ -6,18 +6,23 @@ import {
   Clock,
   Compass,
   Edit2,
+  FileText,
   Images,
+  Loader2,
   MapPin,
   Trash2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
-import type { TripEntry } from "../../backend";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import type { ExternalBlob, TripEntry } from "../../backend";
 import {
   bigIntNsToDate,
   formatDisplayDate,
   formatDisplayTime,
 } from "../../utils/dateUtils";
+import { detectIsPdf } from "../../utils/pdfDetector";
+import { isBlobPdf, markBlobAsPdf } from "../../utils/pdfTracker";
 import { ImageLightbox } from "./ImageLightbox";
 import { TransportBadge } from "./TransportBadge";
 
@@ -38,9 +43,79 @@ export function TripEntryCard({
 }: TripEntryCardProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [photosExpanded, setPhotosExpanded] = useState(false);
+  const [openingPdf, setOpeningPdf] = useState<number | null>(null);
+
+  // Track which blob indexes are confirmed PDFs (async detection result)
+  const [confirmedPdfIndexes, setConfirmedPdfIndexes] = useState<Set<number>>(
+    new Set(),
+  );
+
+  // Async detection: for each blob, check if it's a PDF (handles cross-device/session cases)
+  useEffect(() => {
+    const checkBlobs = async () => {
+      const results = await Promise.all(
+        entry.imageIds.map(async (blob, idx) => {
+          const url = blob.getDirectURL();
+          // Fast path: already known from localStorage
+          if (isBlobPdf(url)) return idx;
+          // Slow path: detect via magic bytes
+          const isPdf = await detectIsPdf(url);
+          if (isPdf) {
+            markBlobAsPdf(url); // cache for future visits on this device
+            return idx;
+          }
+          return null;
+        }),
+      );
+      const pdfSet = new Set(results.filter((i): i is number => i !== null));
+      setConfirmedPdfIndexes(pdfSet);
+    };
+    checkBlobs();
+  }, [entry.imageIds]);
+
+  /** Fetch PDF via its direct URL and open as a blob: URL in a new tab */
+  const openPdf = async (blob: ExternalBlob, pdfIdx: number) => {
+    setOpeningPdf(pdfIdx);
+    try {
+      const directUrl = blob.getDirectURL();
+      const response = await fetch(directUrl);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const arrayBuffer = await response.arrayBuffer();
+      const pdfBlob = new Blob([arrayBuffer], { type: "application/pdf" });
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const win = window.open(blobUrl, "_blank");
+      if (!win) {
+        // Popup blocked — trigger download instead
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = "document.pdf";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      // Revoke after enough time for the new tab to load
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch {
+      // Last-resort fallback: open the raw URL directly
+      try {
+        window.open(blob.getDirectURL(), "_blank");
+      } catch {
+        toast.error("Failed to open PDF. Please try again.");
+      }
+    } finally {
+      setOpeningPdf(null);
+    }
+  };
   const date = bigIntNsToDate(entry.visitDate);
   const formattedDate = formatDisplayDate(date);
-  const imageUrls = entry.imageIds.map((img) => img.getDirectURL());
+
+  // Separate blobs into images and PDFs using async-confirmed set
+  const imageUrls = entry.imageIds
+    .filter((_, idx) => !confirmedPdfIndexes.has(idx))
+    .map((img) => img.getDirectURL());
+  const pdfBlobs = entry.imageIds.filter((_, idx) =>
+    confirmedPdfIndexes.has(idx),
+  );
 
   const markerIdx = index + 1;
 
@@ -190,6 +265,41 @@ export function TripEntryCard({
                   </motion.div>
                 )}
               </AnimatePresence>
+            </div>
+          )}
+
+          {/* PDF attachments */}
+          {pdfBlobs.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {pdfBlobs.map((blob, pdfIdx) => {
+                const pdfUrl = blob.getDirectURL();
+                const rawName = pdfUrl.split("/").pop() || "PDF Document";
+                const label = decodeURIComponent(rawName).replace(
+                  /\.pdf$/i,
+                  "",
+                );
+                const isLoading = openingPdf === pdfIdx;
+                return (
+                  <button
+                    // biome-ignore lint/suspicious/noArrayIndexKey: PDF list is stable per entry
+                    key={pdfIdx}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => openPdf(blob, pdfIdx)}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta bg-terracotta/10 hover:bg-terracotta/20 disabled:opacity-60 px-2.5 py-1 rounded-full transition-colors cursor-pointer"
+                    title={`Open PDF: ${label}`}
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-3.5 h-3.5 flex-shrink-0 animate-spin" />
+                    ) : (
+                      <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                    )}
+                    <span className="max-w-[120px] truncate">
+                      {isLoading ? "Opening…" : label || "PDF Document"}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
