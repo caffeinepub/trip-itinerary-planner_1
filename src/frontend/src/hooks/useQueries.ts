@@ -23,7 +23,7 @@ async function waitForActorInCache(
       // React Query caches the actor under a key that includes the identity principal.
       // We search for any "actor" query that has resolved data.
       const actorQuery = queryClient
-        .getQueriesData<backendInterface>({ queryKey: ["actor"] })
+        .getQueriesData<backendInterface>({ queryKey: ["actor"], exact: false })
         .find(([, data]) => !!data);
 
       if (actorQuery?.[1]) {

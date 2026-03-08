@@ -10,6 +10,7 @@ import {
   Images,
   Loader2,
   MapPin,
+  Ticket,
   Trash2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -25,6 +26,7 @@ import { detectIsPdf } from "../../utils/pdfDetector";
 import { isBlobPdf, markBlobAsPdf } from "../../utils/pdfTracker";
 import { getVenueOption } from "../../utils/venueConfig";
 import { ImageLightbox } from "./ImageLightbox";
+import { TicketLinksSheet } from "./TicketLinksSheet";
 import { TransportBadge } from "./TransportBadge";
 
 interface TripEntryCardProps {
@@ -45,6 +47,7 @@ export function TripEntryCard({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [photosExpanded, setPhotosExpanded] = useState(false);
   const [openingPdf, setOpeningPdf] = useState<number | null>(null);
+  const [ticketSheetOpen, setTicketSheetOpen] = useState(false);
 
   // Track which blob indexes are confirmed PDFs (async detection result)
   const [confirmedPdfIndexes, setConfirmedPdfIndexes] = useState<Set<number>>(
@@ -182,6 +185,18 @@ export function TripEntryCard({
 
             {/* Entry actions */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* Buy Tickets button — always visible */}
+              <Button
+                data-ocid={`entry.ticket_button.${markerIdx}`}
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                onClick={() => setTicketSheetOpen(true)}
+                title="Buy tickets"
+              >
+                <Ticket className="w-4 h-4" />
+              </Button>
+
               {/* Guide button — always visible */}
               <Button
                 data-ocid={`entry.guide_button.${markerIdx}`}
@@ -320,6 +335,14 @@ export function TripEntryCard({
           )}
         </div>
       </motion.article>
+
+      {/* Ticket Links Sheet */}
+      <TicketLinksSheet
+        open={ticketSheetOpen}
+        onClose={() => setTicketSheetOpen(false)}
+        entryId={entry.id}
+        placeName={entry.placeName}
+      />
 
       {/* Lightbox */}
       {lightboxIndex !== null && (
