@@ -30,6 +30,7 @@ export interface TripEntry {
   'updatedAt' : bigint,
   'imageIds' : Array<ExternalBlob>,
   'transportMode' : string,
+  'venueType' : string,
 }
 export interface UserProfile { 'name' : string }
 export type UserRole = { 'admin' : null } |
@@ -69,7 +70,7 @@ export interface _SERVICE {
     TripDocument
   >,
   'createEntry' : ActorMethod<
-    [string, bigint, string, string, string, Array<ExternalBlob>],
+    [string, bigint, string, string, string, string, Array<ExternalBlob>],
     TripEntry
   >,
   'deleteDocument' : ActorMethod<[bigint], undefined>,
@@ -83,7 +84,16 @@ export interface _SERVICE {
   'reorderEntries' : ActorMethod<[Array<bigint>], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'updateEntry' : ActorMethod<
-    [bigint, string, bigint, string, string, string, Array<ExternalBlob>],
+    [
+      bigint,
+      string,
+      bigint,
+      string,
+      string,
+      string,
+      string,
+      Array<ExternalBlob>,
+    ],
     TripEntry
   >,
 }

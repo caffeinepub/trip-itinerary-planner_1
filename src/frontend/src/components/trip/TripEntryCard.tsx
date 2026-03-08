@@ -23,6 +23,7 @@ import {
 } from "../../utils/dateUtils";
 import { detectIsPdf } from "../../utils/pdfDetector";
 import { isBlobPdf, markBlobAsPdf } from "../../utils/pdfTracker";
+import { getVenueOption } from "../../utils/venueConfig";
 import { ImageLightbox } from "./ImageLightbox";
 import { TransportBadge } from "./TransportBadge";
 
@@ -136,11 +137,26 @@ export function TripEntryCard({
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               {/* Step number */}
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-teal text-white text-xs font-bold font-display flex-shrink-0">
                   {index + 1}
                 </span>
                 <TransportBadge mode={entry.transportMode} size="sm" />
+                {entry.venueType &&
+                  (() => {
+                    const venue = getVenueOption(entry.venueType);
+                    if (!venue) return null;
+                    return (
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${venue.color} ${venue.textColor}`}
+                      >
+                        <span className="[&>svg]:w-3 [&>svg]:h-3">
+                          {venue.icon}
+                        </span>
+                        {venue.label}
+                      </span>
+                    );
+                  })()}
               </div>
 
               {/* Place name */}

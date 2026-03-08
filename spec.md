@@ -1,48 +1,26 @@
 # Trip Itinerary Planner
 
 ## Current State
-New project. No existing code.
+
+Full-stack trip itinerary app with entries (place, date, time, transport, venue type, images/PDFs), export to PDF/Excel, offline caching, and a trip guide sheet per entry. No login UI is shown to end users.
+
+Two bugs reported:
+1. **"Fail to save entry"** -- The backend still has `AccessControl.hasPermission(accessControlState, caller, #user)` checks on createEntry, getEntries, updateEntry, deleteEntry, reorderEntries, createDocument, getDocuments, deleteDocument. Since login was removed, all callers are anonymous/guests who don't hold the `#user` role, so every mutation is rejected.
+2. **Place type picker not visible** -- The `DialogContent` uses `max-h-[90vh] overflow-y-auto` but the form fields (including the 10-icon venue type grid) may scroll out of visible range. Additionally, the `<form>` tag closes before the `DialogFooter`, so the Save button is outside the form and `handleSubmit` is wired via `onClick` instead of the form's `onSubmit`, which is fragile.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Trip itinerary manager with shareable view
-- Trip entries (places of visit) with the following fields:
-  - Place name
-  - Date and time of visit
-  - Description / notes
-  - Transport mode (e.g., Flight, Train, Bus, Car, Taxi, Walk, Boat, Other)
-  - Image upload (one or more images per entry)
-- CRUD operations: create, read, edit, delete entries
-- Reordering of entries (by date or manual drag)
-- Export to PDF (client-side using jsPDF or similar)
-- Export to Excel (client-side using SheetJS/xlsx)
-- Shareable read-only link for the trip
+- Nothing new.
 
 ### Modify
-- N/A (new project)
+- **Backend (`main.mo`)**: Remove all `AccessControl.hasPermission` guards from `createEntry`, `getEntries`, `updateEntry`, `deleteEntry`, `reorderEntries`, `createDocument`, `getDocuments`, `deleteDocument`. These should be open to any caller (no auth required). Keep authorization imports for admin/profile functions which still need them.
+- **Frontend (`EntryForm.tsx`)**: Move the `<form>` closing tag so it wraps the `DialogFooter` save/cancel buttons. Ensure the dialog scrolls correctly so the place type picker section is always reachable (add `overflow-y-auto` on the inner form area, not just the dialog).
 
 ### Remove
-- N/A (new project)
+- Nothing.
 
 ## Implementation Plan
 
-### Backend (Motoko)
-- Data model: `TripEntry` with fields: id, placeName, date, time, description, transportMode, imageIds (array of blob references), createdAt, updatedAt
-- CRUD APIs: createEntry, getEntries, updateEntry, deleteEntry
-- Blob storage for images (via blob-storage component)
-- Authorization for owner-only write access, public read for sharing
-
-### Frontend (React + TypeScript)
-- Main itinerary view: list of trip entries sorted by date
-- Add/Edit entry modal/sheet with form fields:
-  - Place name (text input)
-  - Date + time (date/time picker)
-  - Description (textarea)
-  - Transport mode (select dropdown)
-  - Image upload (drag-and-drop or file picker, preview thumbnails)
-- Delete entry with confirmation dialog
-- Export buttons: "Export PDF" and "Export Excel"
-- Shareable link: copy-to-clipboard button
-- Empty state when no entries exist
-- Responsive layout
+1. Regenerate Motoko backend without authorization guards on trip entry and document CRUD functions (keep auth for getUserProfile, saveCallerUserProfile, getCallerUserProfile, assignCallerUserRole, isCallerAdmin).
+2. Update `EntryForm.tsx` to wrap `DialogFooter` inside the `<form>` element so save/cancel are part of the form, and ensure the scrollable area covers all fields including the venue type grid.

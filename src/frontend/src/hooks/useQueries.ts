@@ -100,6 +100,7 @@ export interface CreateEntryParams {
   visitTime: string;
   description: string;
   transportMode: string;
+  venueType: string;
   imageFiles: File[];
   existingImages: ExternalBlob[];
   onProgress?: (fileIndex: number, pct: number) => void;
@@ -115,6 +116,7 @@ export function useCreateEntry() {
       visitTime,
       description,
       transportMode,
+      venueType,
       imageFiles,
       existingImages,
       onProgress,
@@ -136,6 +138,7 @@ export function useCreateEntry() {
         visitTime,
         description,
         transportMode,
+        venueType,
         imageIds,
       );
       // Mark any newly uploaded PDF blobs so they can be identified at display time
@@ -175,6 +178,7 @@ export function useUpdateEntry() {
       visitTime,
       description,
       transportMode,
+      venueType,
       imageFiles,
       existingImages,
       onProgress,
@@ -197,6 +201,7 @@ export function useUpdateEntry() {
         visitTime,
         description,
         transportMode,
+        venueType,
         imageIds,
       );
       // Mark any newly uploaded PDF blobs so they can be identified at display time

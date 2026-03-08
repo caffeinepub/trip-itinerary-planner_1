@@ -33,6 +33,7 @@ export interface TripEntry {
     updatedAt: bigint;
     imageIds: Array<ExternalBlob>;
     transportMode: string;
+    venueType: string;
 }
 export interface UserProfile {
     name: string;
@@ -45,16 +46,16 @@ export enum UserRole {
 export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createDocument(title: string, docDate: bigint, note: string, fileId: ExternalBlob): Promise<TripDocument>;
-    createEntry(placeName: string, visitDate: bigint, visitTime: string, description: string, transportMode: string, imageIds: Array<ExternalBlob>): Promise<TripEntry>;
+    createEntry(placeName: string, visitDate: bigint, visitTime: string, description: string, transportMode: string, venueType: string, imageIds: Array<ExternalBlob>): Promise<TripEntry>;
     deleteDocument(id: bigint): Promise<void>;
     deleteEntry(id: bigint): Promise<void>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getDocuments(): Promise<Array<TripDocument>>;
     getEntries(): Promise<Array<TripEntry>>;
-    getUserProfile(_user: Principal): Promise<UserProfile | null>;
+    getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     reorderEntries(newOrder: Array<bigint>): Promise<void>;
-    saveCallerUserProfile(_profile: UserProfile): Promise<void>;
-    updateEntry(id: bigint, placeName: string, visitDate: bigint, visitTime: string, description: string, transportMode: string, imageIds: Array<ExternalBlob>): Promise<TripEntry>;
+    saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    updateEntry(id: bigint, placeName: string, visitDate: bigint, visitTime: string, description: string, transportMode: string, venueType: string, imageIds: Array<ExternalBlob>): Promise<TripEntry>;
 }

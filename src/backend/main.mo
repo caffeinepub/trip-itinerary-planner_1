@@ -6,11 +6,13 @@ import Array "mo:core/Array";
 import Order "mo:core/Order";
 import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
+import Iter "mo:core/Iter";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
-import Iter "mo:core/Iter";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+
+
 
 actor {
   // Blob Storage + Authorization
@@ -20,22 +22,31 @@ actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
-  // User Profile Management - Stub
+  // User Profile Management
   public type UserProfile = {
     name : Text;
   };
 
   let userProfiles = Map.empty<Principal, UserProfile>();
 
-  public query func getUserProfile(_user : Principal) : async ?UserProfile {
-    null;
+  public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
+    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own profile");
+    };
+    userProfiles.get(user);
   };
 
-  public shared ({ caller }) func saveCallerUserProfile(_profile : UserProfile) : async () {
-    () // Dummy function for frontend compatibility
+  public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can save profiles");
+    };
+    userProfiles.add(caller, profile);
   };
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can access profiles");
+    };
     userProfiles.get(caller);
   };
 
@@ -47,6 +58,7 @@ actor {
     visitTime : Text;
     description : Text;
     transportMode : Text;
+    venueType : Text;
     imageIds : [Storage.ExternalBlob];
     order : Nat;
     createdAt : Int;
@@ -81,14 +93,15 @@ actor {
     Nat.compare(a.docDate, b.docDate);
   };
 
-  // CRUD for Trip Entries
+  // CRUD for Trip Entries (open to all callers - no auth required)
 
-  public shared ({ caller }) func createEntry(
+  public shared func createEntry(
     placeName : Text,
     visitDate : Nat,
     visitTime : Text,
     description : Text,
     transportMode : Text,
+    venueType : Text,
     imageIds : [Storage.ExternalBlob],
   ) : async TripEntry {
     let id = nextEntryId;
@@ -101,6 +114,7 @@ actor {
       visitTime;
       description;
       transportMode;
+      venueType;
       imageIds;
       order = entries.size();
       createdAt = Time.now();
@@ -116,13 +130,14 @@ actor {
     entryArray.sort(compareTripEntries);
   };
 
-  public shared ({ caller }) func updateEntry(
+  public shared func updateEntry(
     id : Nat,
     placeName : Text,
     visitDate : Nat,
     visitTime : Text,
     description : Text,
     transportMode : Text,
+    venueType : Text,
     imageIds : [Storage.ExternalBlob],
   ) : async TripEntry {
     switch (entries.get(id)) {
@@ -135,6 +150,7 @@ actor {
           visitTime;
           description;
           transportMode;
+          venueType;
           imageIds;
           order = existing.order;
           createdAt = existing.createdAt;
@@ -146,15 +162,14 @@ actor {
     };
   };
 
-  public shared ({ caller }) func deleteEntry(id : Nat) : async () {
+  public shared func deleteEntry(id : Nat) : async () {
     if (not (entries.containsKey(id))) {
       Runtime.trap("Entry not found");
     };
-
     entries.remove(id);
   };
 
-  public shared ({ caller }) func reorderEntries(newOrder : [Nat]) : async () {
+  public shared func reorderEntries(newOrder : [Nat]) : async () {
     for (i in newOrder.keys()) {
       let id = newOrder[i];
       switch (entries.get(id)) {
@@ -167,6 +182,7 @@ actor {
             visitTime = entry.visitTime;
             description = entry.description;
             transportMode = entry.transportMode;
+            venueType = entry.venueType;
             imageIds = entry.imageIds;
             order = i;
             createdAt = entry.createdAt;
@@ -178,9 +194,9 @@ actor {
     };
   };
 
-  // CRUD for Trip Documents
+  // CRUD for Trip Documents (open to all callers - no auth required)
 
-  public shared ({ caller }) func createDocument(
+  public shared func createDocument(
     title : Text,
     docDate : Nat,
     note : Text,
@@ -207,7 +223,7 @@ actor {
     docArray.sort(compareTripDocumentsByDate);
   };
 
-  public shared ({ caller }) func deleteDocument(id : Nat) : async () {
+  public shared func deleteDocument(id : Nat) : async () {
     if (not (documents.containsKey(id))) {
       Runtime.trap("Document not found");
     };

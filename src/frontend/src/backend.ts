@@ -115,6 +115,7 @@ export interface TripEntry {
     updatedAt: bigint;
     imageIds: Array<ExternalBlob>;
     transportMode: string;
+    venueType: string;
 }
 export interface UserProfile {
     name: string;
@@ -138,18 +139,18 @@ export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createDocument(title: string, docDate: bigint, note: string, fileId: ExternalBlob): Promise<TripDocument>;
-    createEntry(placeName: string, visitDate: bigint, visitTime: string, description: string, transportMode: string, imageIds: Array<ExternalBlob>): Promise<TripEntry>;
+    createEntry(placeName: string, visitDate: bigint, visitTime: string, description: string, transportMode: string, venueType: string, imageIds: Array<ExternalBlob>): Promise<TripEntry>;
     deleteDocument(id: bigint): Promise<void>;
     deleteEntry(id: bigint): Promise<void>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getDocuments(): Promise<Array<TripDocument>>;
     getEntries(): Promise<Array<TripEntry>>;
-    getUserProfile(_user: Principal): Promise<UserProfile | null>;
+    getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     reorderEntries(newOrder: Array<bigint>): Promise<void>;
-    saveCallerUserProfile(_profile: UserProfile): Promise<void>;
-    updateEntry(id: bigint, placeName: string, visitDate: bigint, visitTime: string, description: string, transportMode: string, imageIds: Array<ExternalBlob>): Promise<TripEntry>;
+    saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    updateEntry(id: bigint, placeName: string, visitDate: bigint, visitTime: string, description: string, transportMode: string, venueType: string, imageIds: Array<ExternalBlob>): Promise<TripEntry>;
 }
 import type { ExternalBlob as _ExternalBlob, TripDocument as _TripDocument, TripEntry as _TripEntry, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -280,17 +281,17 @@ export class Backend implements backendInterface {
             return from_candid_TripDocument_n11(this._uploadFile, this._downloadFile, result);
         }
     }
-    async createEntry(arg0: string, arg1: bigint, arg2: string, arg3: string, arg4: string, arg5: Array<ExternalBlob>): Promise<TripEntry> {
+    async createEntry(arg0: string, arg1: bigint, arg2: string, arg3: string, arg4: string, arg5: string, arg6: Array<ExternalBlob>): Promise<TripEntry> {
         if (this.processError) {
             try {
-                const result = await this.actor.createEntry(arg0, arg1, arg2, arg3, arg4, await to_candid_vec_n14(this._uploadFile, this._downloadFile, arg5));
+                const result = await this.actor.createEntry(arg0, arg1, arg2, arg3, arg4, arg5, await to_candid_vec_n14(this._uploadFile, this._downloadFile, arg6));
                 return from_candid_TripEntry_n15(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createEntry(arg0, arg1, arg2, arg3, arg4, await to_candid_vec_n14(this._uploadFile, this._downloadFile, arg5));
+            const result = await this.actor.createEntry(arg0, arg1, arg2, arg3, arg4, arg5, await to_candid_vec_n14(this._uploadFile, this._downloadFile, arg6));
             return from_candid_TripEntry_n15(this._uploadFile, this._downloadFile, result);
         }
     }
@@ -434,17 +435,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async updateEntry(arg0: bigint, arg1: string, arg2: bigint, arg3: string, arg4: string, arg5: string, arg6: Array<ExternalBlob>): Promise<TripEntry> {
+    async updateEntry(arg0: bigint, arg1: string, arg2: bigint, arg3: string, arg4: string, arg5: string, arg6: string, arg7: Array<ExternalBlob>): Promise<TripEntry> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateEntry(arg0, arg1, arg2, arg3, arg4, arg5, await to_candid_vec_n14(this._uploadFile, this._downloadFile, arg6));
+                const result = await this.actor.updateEntry(arg0, arg1, arg2, arg3, arg4, arg5, arg6, await to_candid_vec_n14(this._uploadFile, this._downloadFile, arg7));
                 return from_candid_TripEntry_n15(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateEntry(arg0, arg1, arg2, arg3, arg4, arg5, await to_candid_vec_n14(this._uploadFile, this._downloadFile, arg6));
+            const result = await this.actor.updateEntry(arg0, arg1, arg2, arg3, arg4, arg5, arg6, await to_candid_vec_n14(this._uploadFile, this._downloadFile, arg7));
             return from_candid_TripEntry_n15(this._uploadFile, this._downloadFile, result);
         }
     }
@@ -508,6 +509,7 @@ async function from_candid_record_n16(_uploadFile: (file: ExternalBlob) => Promi
     updatedAt: bigint;
     imageIds: Array<_ExternalBlob>;
     transportMode: string;
+    venueType: string;
 }): Promise<{
     id: bigint;
     placeName: string;
@@ -519,6 +521,7 @@ async function from_candid_record_n16(_uploadFile: (file: ExternalBlob) => Promi
     updatedAt: bigint;
     imageIds: Array<ExternalBlob>;
     transportMode: string;
+    venueType: string;
 }> {
     return {
         id: value.id,
@@ -530,7 +533,8 @@ async function from_candid_record_n16(_uploadFile: (file: ExternalBlob) => Promi
         description: value.description,
         updatedAt: value.updatedAt,
         imageIds: await from_candid_vec_n17(_uploadFile, _downloadFile, value.imageIds),
-        transportMode: value.transportMode
+        transportMode: value.transportMode,
+        venueType: value.venueType
     };
 }
 function from_candid_record_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {

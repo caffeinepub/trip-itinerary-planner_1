@@ -44,6 +44,7 @@ export const TripEntry = IDL.Record({
   'updatedAt' : IDL.Int,
   'imageIds' : IDL.Vec(ExternalBlob),
   'transportMode' : IDL.Text,
+  'venueType' : IDL.Text,
 });
 export const UserProfile = IDL.Record({ 'name' : IDL.Text });
 
@@ -82,7 +83,15 @@ export const idlService = IDL.Service({
       [],
     ),
   'createEntry' : IDL.Func(
-      [IDL.Text, IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Vec(ExternalBlob)],
+      [
+        IDL.Text,
+        IDL.Nat,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Vec(ExternalBlob),
+      ],
       [TripEntry],
       [],
     ),
@@ -105,6 +114,7 @@ export const idlService = IDL.Service({
         IDL.Nat,
         IDL.Text,
         IDL.Nat,
+        IDL.Text,
         IDL.Text,
         IDL.Text,
         IDL.Text,
@@ -154,6 +164,7 @@ export const idlFactory = ({ IDL }) => {
     'updatedAt' : IDL.Int,
     'imageIds' : IDL.Vec(ExternalBlob),
     'transportMode' : IDL.Text,
+    'venueType' : IDL.Text,
   });
   const UserProfile = IDL.Record({ 'name' : IDL.Text });
   
@@ -198,6 +209,7 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           IDL.Text,
           IDL.Text,
+          IDL.Text,
           IDL.Vec(ExternalBlob),
         ],
         [TripEntry],
@@ -222,6 +234,7 @@ export const idlFactory = ({ IDL }) => {
           IDL.Nat,
           IDL.Text,
           IDL.Nat,
+          IDL.Text,
           IDL.Text,
           IDL.Text,
           IDL.Text,

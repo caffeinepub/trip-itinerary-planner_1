@@ -30,6 +30,7 @@ import {
 } from "../../utils/dateUtils";
 import { isBlobPdf } from "../../utils/pdfTracker";
 import { TRANSPORT_OPTIONS } from "../../utils/transportConfig";
+import { VENUE_OPTIONS } from "../../utils/venueConfig";
 
 interface EntryFormProps {
   open: boolean;
@@ -63,6 +64,7 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
   const [transportMode, setTransportMode] = useState(
     editEntry?.transportMode ?? "Flight",
   );
+  const [venueType, setVenueType] = useState(editEntry?.venueType ?? "");
   const [description, setDescription] = useState(editEntry?.description ?? "");
   const [images, setImages] = useState<ImagePreview[]>(() => {
     if (!editEntry) return [];
@@ -96,6 +98,7 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
     setVisitDate("");
     setVisitTime("");
     setTransportMode("Flight");
+    setVenueType("");
     setDescription("");
     setImages([]);
     setUploadProgress({});
@@ -182,6 +185,7 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
           visitTime,
           description,
           transportMode,
+          venueType,
           imageFiles: newFiles,
           existingImages,
           onProgress: handleProgress,
@@ -194,6 +198,7 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
           visitTime,
           description,
           transportMode,
+          venueType,
           imageFiles: newFiles,
           existingImages,
           onProgress: handleProgress,
@@ -223,6 +228,7 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
     );
     setVisitTime(editEntry?.visitTime ?? "");
     setTransportMode(editEntry?.transportMode ?? "Flight");
+    setVenueType(editEntry?.venueType ?? "");
     setDescription(editEntry?.description ?? "");
     setImages(
       editEntry
@@ -247,221 +253,260 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
       <DialogContent
         data-ocid="entry_form.dialog"
-        className="max-w-lg max-h-[90vh] overflow-y-auto"
+        className="max-w-lg flex flex-col max-h-[90vh] p-0 gap-0 overflow-hidden"
       >
-        <DialogHeader>
+        <DialogHeader className="px-6 pt-6 pb-2 flex-shrink-0">
           <DialogTitle className="font-display text-xl">
             {isEditing ? "Edit Entry" : "Add New Entry"}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
-          {/* Place Name */}
-          <div className="space-y-1.5">
-            <Label htmlFor="place-name">
-              Place Name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="place-name"
-              data-ocid="entry_form.place_input"
-              value={placeName}
-              onChange={(e) => setPlaceName(e.target.value)}
-              placeholder="e.g. Eiffel Tower, Paris"
-              required
-            />
-          </div>
-
-          {/* Date & Time row */}
-          <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto px-6 py-2 space-y-4">
+            {/* Place Name */}
             <div className="space-y-1.5">
-              <Label htmlFor="visit-date">
-                Date <span className="text-destructive">*</span>
+              <Label htmlFor="place-name">
+                Place Name <span className="text-destructive">*</span>
               </Label>
               <Input
-                id="visit-date"
-                data-ocid="entry_form.date_input"
-                type="date"
-                value={visitDate}
-                onChange={(e) => setVisitDate(e.target.value)}
+                id="place-name"
+                data-ocid="entry_form.place_input"
+                value={placeName}
+                onChange={(e) => setPlaceName(e.target.value)}
+                placeholder="e.g. Eiffel Tower, Paris"
                 required
               />
             </div>
+
+            {/* Date & Time row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="visit-date">
+                  Date <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="visit-date"
+                  data-ocid="entry_form.date_input"
+                  type="date"
+                  value={visitDate}
+                  onChange={(e) => setVisitDate(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="visit-time">Time</Label>
+                <Input
+                  id="visit-time"
+                  data-ocid="entry_form.time_input"
+                  type="time"
+                  value={visitTime}
+                  onChange={(e) => setVisitTime(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Transport Mode */}
             <div className="space-y-1.5">
-              <Label htmlFor="visit-time">Time</Label>
-              <Input
-                id="visit-time"
-                data-ocid="entry_form.time_input"
-                type="time"
-                value={visitTime}
-                onChange={(e) => setVisitTime(e.target.value)}
+              <Label>Transport Mode</Label>
+              <Select value={transportMode} onValueChange={setTransportMode}>
+                <SelectTrigger data-ocid="entry_form.transport_select">
+                  <SelectValue placeholder="Select transport" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRANSPORT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <span className="flex items-center gap-2">
+                        {opt.icon}
+                        {opt.label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Place Type */}
+            <div className="space-y-1.5">
+              <Label>
+                Place Type{" "}
+                <span className="text-muted-foreground font-normal text-xs">
+                  (optional)
+                </span>
+              </Label>
+              <div
+                data-ocid="entry_form.venue_type_select"
+                className="grid grid-cols-5 gap-1.5"
+              >
+                {VENUE_OPTIONS.map((opt) => {
+                  const isSelected = venueType === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setVenueType(isSelected ? "" : opt.value)}
+                      className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg border transition-all duration-150 ${
+                        isSelected
+                          ? `${opt.color} ${opt.textColor} border-current ring-2 ring-offset-1 ring-current/40 shadow-sm`
+                          : "bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary hover:text-foreground"
+                      }`}
+                      title={opt.label}
+                      aria-pressed={isSelected}
+                    >
+                      {opt.icon}
+                      <span className="text-[10px] leading-tight font-medium">
+                        {opt.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                data-ocid="entry_form.description_textarea"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="What's special about this place? Activities, notes, tips..."
+                rows={3}
               />
+            </div>
+
+            {/* Image & PDF Upload */}
+            <div className="space-y-2">
+              <Label>Photos & Documents</Label>
+
+              {/* Drop zone — label acts as click target for the hidden file input */}
+              <label
+                data-ocid="entry_form.image_upload.dropzone"
+                htmlFor="file-upload"
+                className={`block border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                  dragOver
+                    ? "border-teal bg-teal/5"
+                    : "border-border hover:border-teal/50 hover:bg-secondary/50"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+              >
+                <ImagePlus className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Drag & drop files here, or{" "}
+                  <span className="text-teal font-medium">click to browse</span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Images (JPG, PNG, WebP) and PDFs supported
+                </p>
+                <input
+                  id="file-upload"
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,application/pdf"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => addImageFiles(e.target.files)}
+                />
+              </label>
+
+              {/* File previews */}
+              {images.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {images.map((img) => (
+                    <div key={img.id} className="relative group">
+                      {img.isPdf ? (
+                        /* PDF preview card */
+                        <div className="w-16 h-16 bg-secondary rounded-md ring-1 ring-border flex flex-col items-center justify-center gap-0.5 px-1">
+                          <FileText className="w-6 h-6 text-terracotta flex-shrink-0" />
+                          <span className="text-[9px] text-muted-foreground leading-tight text-center truncate w-full px-0.5">
+                            {img.fileName
+                              ? img.fileName.replace(/\.pdf$/i, "")
+                              : "PDF"}
+                          </span>
+                        </div>
+                      ) : (
+                        <img
+                          src={img.url}
+                          alt={`Selected ${img.file ? "new upload" : "existing"}`}
+                          className="w-16 h-16 object-cover rounded-md ring-1 ring-border"
+                        />
+                      )}
+                      {/* Upload progress (images and PDFs) */}
+                      {img.file &&
+                        uploadProgress[img.id] !== undefined &&
+                        uploadProgress[img.id] < 100 && (
+                          <div className="absolute inset-0 bg-black/60 rounded-md flex flex-col items-center justify-center">
+                            <Progress
+                              value={uploadProgress[img.id]}
+                              className="w-12 h-1.5"
+                            />
+                            <span className="text-white text-xs mt-1">
+                              {uploadProgress[img.id]}%
+                            </span>
+                          </div>
+                        )}
+                      {img.file && uploadProgress[img.id] === 100 && (
+                        <div className="absolute inset-0 bg-black/40 rounded-md flex items-center justify-center">
+                          <Check className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                        onClick={() => removeImage(img.id)}
+                        aria-label={img.isPdf ? "Remove PDF" : "Remove image"}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    data-ocid="entry_form.upload_button"
+                    className="w-16 h-16 border-2 border-dashed border-border rounded-md flex items-center justify-center text-muted-foreground hover:border-teal hover:text-teal transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Add more files"
+                  >
+                    <Upload className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Transport Mode */}
-          <div className="space-y-1.5">
-            <Label>Transport Mode</Label>
-            <Select value={transportMode} onValueChange={setTransportMode}>
-              <SelectTrigger data-ocid="entry_form.transport_select">
-                <SelectValue placeholder="Select transport" />
-              </SelectTrigger>
-              <SelectContent>
-                {TRANSPORT_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    <span className="flex items-center gap-2">
-                      {opt.icon}
-                      {opt.label}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Description */}
-          <div className="space-y-1.5">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              data-ocid="entry_form.description_textarea"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What's special about this place? Activities, notes, tips..."
-              rows={3}
-            />
-          </div>
-
-          {/* Image & PDF Upload */}
-          <div className="space-y-2">
-            <Label>Photos & Documents</Label>
-
-            {/* Drop zone — label acts as click target for the hidden file input */}
-            <label
-              data-ocid="entry_form.image_upload.dropzone"
-              htmlFor="file-upload"
-              className={`block border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
-                dragOver
-                  ? "border-teal bg-teal/5"
-                  : "border-border hover:border-teal/50 hover:bg-secondary/50"
-              }`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
+          <DialogFooter className="gap-2 px-6 py-4 flex-shrink-0 border-t border-border">
+            <Button
+              data-ocid="entry_form.cancel_button"
+              variant="outline"
+              onClick={handleClose}
+              disabled={isSubmitting}
             >
-              <ImagePlus className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Drag & drop files here, or{" "}
-                <span className="text-teal font-medium">click to browse</span>
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Images (JPG, PNG, WebP) and PDFs supported
-              </p>
-              <input
-                id="file-upload"
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,application/pdf"
-                multiple
-                className="hidden"
-                onChange={(e) => addImageFiles(e.target.files)}
-              />
-            </label>
-
-            {/* File previews */}
-            {images.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {images.map((img) => (
-                  <div key={img.id} className="relative group">
-                    {img.isPdf ? (
-                      /* PDF preview card */
-                      <div className="w-16 h-16 bg-secondary rounded-md ring-1 ring-border flex flex-col items-center justify-center gap-0.5 px-1">
-                        <FileText className="w-6 h-6 text-terracotta flex-shrink-0" />
-                        <span className="text-[9px] text-muted-foreground leading-tight text-center truncate w-full px-0.5">
-                          {img.fileName
-                            ? img.fileName.replace(/\.pdf$/i, "")
-                            : "PDF"}
-                        </span>
-                      </div>
-                    ) : (
-                      <img
-                        src={img.url}
-                        alt={`Selected ${img.file ? "new upload" : "existing"}`}
-                        className="w-16 h-16 object-cover rounded-md ring-1 ring-border"
-                      />
-                    )}
-                    {/* Upload progress (images and PDFs) */}
-                    {img.file &&
-                      uploadProgress[img.id] !== undefined &&
-                      uploadProgress[img.id] < 100 && (
-                        <div className="absolute inset-0 bg-black/60 rounded-md flex flex-col items-center justify-center">
-                          <Progress
-                            value={uploadProgress[img.id]}
-                            className="w-12 h-1.5"
-                          />
-                          <span className="text-white text-xs mt-1">
-                            {uploadProgress[img.id]}%
-                          </span>
-                        </div>
-                      )}
-                    {img.file && uploadProgress[img.id] === 100 && (
-                      <div className="absolute inset-0 bg-black/40 rounded-md flex items-center justify-center">
-                        <Check className="w-4 h-4 text-white" />
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                      onClick={() => removeImage(img.id)}
-                      aria-label={img.isPdf ? "Remove PDF" : "Remove image"}
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  data-ocid="entry_form.upload_button"
-                  className="w-16 h-16 border-2 border-dashed border-border rounded-md flex items-center justify-center text-muted-foreground hover:border-teal hover:text-teal transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                  aria-label="Add more files"
-                >
-                  <Upload className="w-5 h-5" />
-                </button>
-              </div>
-            )}
-          </div>
+              Cancel
+            </Button>
+            <Button
+              data-ocid="entry_form.save_button"
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-teal text-white hover:bg-teal/90"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : isEditing ? (
+                "Update Entry"
+              ) : (
+                "Add Entry"
+              )}
+            </Button>
+          </DialogFooter>
         </form>
-
-        <DialogFooter className="gap-2">
-          <Button
-            data-ocid="entry_form.cancel_button"
-            variant="outline"
-            onClick={handleClose}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            data-ocid="entry_form.save_button"
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="bg-teal text-white hover:bg-teal/90"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : isEditing ? (
-              "Update Entry"
-            ) : (
-              "Add Entry"
-            )}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
