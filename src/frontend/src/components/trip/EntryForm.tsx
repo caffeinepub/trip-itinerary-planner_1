@@ -209,10 +209,19 @@ export function EntryForm({ open, editEntry, onClose }: EntryFormProps) {
       onClose();
     } catch (err) {
       console.error("Save entry error:", err);
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Failed to save entry. Please try again.";
+      let msg = "Failed to save entry. Please try again.";
+      if (err instanceof Error) {
+        msg = err.message;
+      } else if (err && typeof err === "object") {
+        const e = err as Record<string, unknown>;
+        msg =
+          (typeof e.message === "string" && e.message) ||
+          (typeof e.errorMessage === "string" && e.errorMessage) ||
+          (typeof e.reject_message === "string" && e.reject_message) ||
+          JSON.stringify(err);
+      } else if (typeof err === "string") {
+        msg = err;
+      }
       toast.error(msg);
     }
   };

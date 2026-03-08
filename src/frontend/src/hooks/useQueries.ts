@@ -6,42 +6,59 @@ import {
   UserRole,
 } from "../backend";
 import type { backendInterface } from "../backend";
+import { createActorWithConfig } from "../config";
 import { markBlobAsPdf } from "../utils/pdfTracker";
 import { useActor } from "./useActor";
 
 /**
- * Wait for the actor to become available via the React Query cache.
- * Polls the query cache every 200ms for up to `timeoutMs`.
+ * Get the actor from cache, or create a fresh anonymous actor as a last resort.
+ * Polls the query cache every 200ms for up to `timeoutMs`, then falls back to
+ * creating a new anonymous actor directly.
  */
-async function waitForActorInCache(
+async function getOrCreateActor(
   queryClient: ReturnType<typeof useQueryClient>,
-  timeoutMs = 10_000,
+  timeoutMs = 5_000,
 ): Promise<backendInterface> {
   const deadline = Date.now() + timeoutMs;
-  return new Promise((resolve, reject) => {
-    const poll = () => {
-      // React Query caches the actor under a key that includes the identity principal.
-      // We search for any "actor" query that has resolved data.
-      const actorQuery = queryClient
-        .getQueriesData<backendInterface>({ queryKey: ["actor"], exact: false })
-        .find(([, data]) => !!data);
 
-      if (actorQuery?.[1]) {
-        resolve(actorQuery[1]);
+  // Poll cache first
+  const fromCache = await new Promise<backendInterface | null>((resolve) => {
+    const poll = () => {
+      const allQueries = queryClient.getQueriesData<backendInterface>({
+        queryKey: ["actor"],
+        exact: false,
+      });
+      const found = allQueries.find(([, data]) => !!data);
+      if (found?.[1]) {
+        resolve(found[1]);
+        return;
+      }
+      // Fallback: scan all cached queries for actor-like entries
+      const allCached = queryClient.getQueriesData<backendInterface>({});
+      const fallback = allCached.find(
+        ([key, data]) =>
+          !!data &&
+          Array.isArray(key) &&
+          typeof key[0] === "string" &&
+          (key[0] as string).includes("actor"),
+      );
+      if (fallback?.[1]) {
+        resolve(fallback[1]);
         return;
       }
       if (Date.now() >= deadline) {
-        reject(
-          new Error(
-            "Connection not ready. Please wait a moment and try again.",
-          ),
-        );
+        resolve(null);
         return;
       }
       setTimeout(poll, 200);
     };
     poll();
   });
+
+  if (fromCache) return fromCache;
+
+  // Cache miss after timeout — create a fresh anonymous actor directly
+  return await createActorWithConfig();
 }
 
 export function useGetEntries() {
@@ -65,32 +82,26 @@ export function useGetEntries() {
 }
 
 export function useIsAdmin() {
-  const { actor, isFetching: actorFetching } = useActor();
+  // App has no login — always return false without calling the backend
   return useQuery<boolean>({
     queryKey: ["isAdmin"],
-    queryFn: async () => {
-      if (!actor) return false;
-      return actor.isCallerAdmin();
-    },
-    enabled: !!actor && !actorFetching,
+    queryFn: async () => false,
+    initialData: false,
   });
 }
 
 export function useGetCallerUserProfile() {
-  const { actor, isFetching: actorFetching } = useActor();
+  // App has no login — always return null without calling the backend (would trap for anonymous)
   const query = useQuery({
     queryKey: ["currentUserProfile"],
-    queryFn: async () => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.getCallerUserProfile();
-    },
-    enabled: !!actor && !actorFetching,
+    queryFn: async () => null,
+    initialData: null,
     retry: false,
   });
   return {
     ...query,
-    isLoading: actorFetching || query.isLoading,
-    isFetched: !!actor && query.isFetched,
+    isLoading: false,
+    isFetched: true,
   };
 }
 
@@ -121,7 +132,10 @@ export function useCreateEntry() {
       existingImages,
       onProgress,
     }: CreateEntryParams) => {
-      const resolvedActor = actor ?? (await waitForActorInCache(queryClient));
+      const resolvedActor = actor ?? (await getOrCreateActor(queryClient));
+      if (!resolvedActor) {
+        throw new Error("Backend not ready. Please refresh and try again.");
+      }
       const newBlobs = await Promise.all(
         imageFiles.map(async (file, i) => {
           const bytes = new Uint8Array(await file.arrayBuffer());
@@ -132,15 +146,43 @@ export function useCreateEntry() {
         }),
       );
       const imageIds = [...existingImages, ...newBlobs];
-      const entry = await resolvedActor.createEntry(
-        placeName,
-        visitDate,
-        visitTime,
-        description,
-        transportMode,
-        venueType,
-        imageIds,
-      );
+      const attemptCreate = async (
+        actorToUse: backendInterface,
+      ): Promise<Awaited<ReturnType<backendInterface["createEntry"]>>> => {
+        try {
+          return await actorToUse.createEntry(
+            placeName,
+            visitDate,
+            visitTime,
+            description,
+            transportMode,
+            venueType,
+            imageIds,
+          );
+        } catch (err: unknown) {
+          // Normalize IC rejection objects into proper Error instances
+          if (err && typeof err === "object" && !(err instanceof Error)) {
+            const e = err as Record<string, unknown>;
+            const msg =
+              (typeof e.message === "string" && e.message) ||
+              (typeof e.errorMessage === "string" && e.errorMessage) ||
+              (typeof e.reject_message === "string" && e.reject_message) ||
+              "Failed to save entry";
+            throw new Error(msg);
+          }
+          throw err;
+        }
+      };
+
+      let entry: Awaited<ReturnType<backendInterface["createEntry"]>>;
+      try {
+        entry = await attemptCreate(resolvedActor);
+      } catch {
+        // Retry once with a fresh actor after a short delay (handles canister restarts)
+        await new Promise((r) => setTimeout(r, 2_000));
+        const freshActor = await createActorWithConfig();
+        entry = await attemptCreate(freshActor);
+      }
       // Mark any newly uploaded PDF blobs so they can be identified at display time
       imageFiles.forEach((file, i) => {
         if (file.type === "application/pdf") {
@@ -183,7 +225,10 @@ export function useUpdateEntry() {
       existingImages,
       onProgress,
     }: UpdateEntryParams) => {
-      const resolvedActor = actor ?? (await waitForActorInCache(queryClient));
+      const resolvedActor = actor ?? (await getOrCreateActor(queryClient));
+      if (!resolvedActor) {
+        throw new Error("Backend not ready. Please refresh and try again.");
+      }
       const newBlobs = await Promise.all(
         imageFiles.map(async (file, i) => {
           const bytes = new Uint8Array(await file.arrayBuffer());
@@ -194,16 +239,43 @@ export function useUpdateEntry() {
         }),
       );
       const imageIds = [...existingImages, ...newBlobs];
-      const entry = await resolvedActor.updateEntry(
-        id,
-        placeName,
-        visitDate,
-        visitTime,
-        description,
-        transportMode,
-        venueType,
-        imageIds,
-      );
+      const attemptUpdate = async (
+        actorToUse: backendInterface,
+      ): Promise<Awaited<ReturnType<backendInterface["updateEntry"]>>> => {
+        try {
+          return await actorToUse.updateEntry(
+            id,
+            placeName,
+            visitDate,
+            visitTime,
+            description,
+            transportMode,
+            venueType,
+            imageIds,
+          );
+        } catch (err: unknown) {
+          if (err && typeof err === "object" && !(err instanceof Error)) {
+            const e = err as Record<string, unknown>;
+            const msg =
+              (typeof e.message === "string" && e.message) ||
+              (typeof e.errorMessage === "string" && e.errorMessage) ||
+              (typeof e.reject_message === "string" && e.reject_message) ||
+              "Failed to update entry";
+            throw new Error(msg);
+          }
+          throw err;
+        }
+      };
+
+      let entry: Awaited<ReturnType<backendInterface["updateEntry"]>>;
+      try {
+        entry = await attemptUpdate(resolvedActor);
+      } catch {
+        // Retry once with a fresh actor after a short delay (handles canister restarts)
+        await new Promise((r) => setTimeout(r, 2_000));
+        const freshActor = await createActorWithConfig();
+        entry = await attemptUpdate(freshActor);
+      }
       // Mark any newly uploaded PDF blobs so they can be identified at display time
       imageFiles.forEach((file, i) => {
         if (file.type === "application/pdf") {
@@ -224,7 +296,7 @@ export function useDeleteEntry() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: bigint) => {
-      const resolvedActor = actor ?? (await waitForActorInCache(queryClient));
+      const resolvedActor = actor ?? (await getOrCreateActor(queryClient));
       return resolvedActor.deleteEntry(id);
     },
     onSuccess: () => {
@@ -234,28 +306,20 @@ export function useDeleteEntry() {
 }
 
 export function useSaveProfile() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
+  // App has no login — no-op mutation (saveCallerUserProfile traps for anonymous users)
   return useMutation({
-    mutationFn: async (name: string) => {
-      const resolvedActor = actor ?? (await waitForActorInCache(queryClient));
-      return resolvedActor.saveCallerUserProfile({ name });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
+    mutationFn: async (_name: string) => {
+      // no-op
     },
   });
 }
 
 export function useGetCallerUserRole() {
-  const { actor, isFetching: actorFetching } = useActor();
+  // App has no login — always return guest without calling the backend (would trap for anonymous)
   return useQuery<UserRole>({
     queryKey: ["callerUserRole"],
-    queryFn: async () => {
-      if (!actor) return UserRole.guest;
-      return actor.getCallerUserRole();
-    },
-    enabled: !!actor && !actorFetching,
+    queryFn: async () => UserRole.guest,
+    initialData: UserRole.guest,
   });
 }
 
@@ -295,7 +359,7 @@ export function useCreateDocument() {
       file,
       onProgress,
     }: CreateDocumentParams) => {
-      const resolvedActor = actor ?? (await waitForActorInCache(queryClient));
+      const resolvedActor = actor ?? (await getOrCreateActor(queryClient));
       const arrayBuffer = await file.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer) as Uint8Array<ArrayBuffer>;
       const blob = ExternalBlob.fromBytes(bytes).withUploadProgress((pct) =>
@@ -314,7 +378,7 @@ export function useDeleteDocument() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: bigint) => {
-      const resolvedActor = actor ?? (await waitForActorInCache(queryClient));
+      const resolvedActor = actor ?? (await getOrCreateActor(queryClient));
       return resolvedActor.deleteDocument(id);
     },
     onSuccess: () => {

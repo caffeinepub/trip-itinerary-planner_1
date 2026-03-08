@@ -135,13 +135,14 @@ export function TripEntryCard({
         {/* Left accent stripe — day number */}
         <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-terracotta to-teal rounded-l-lg" />
 
-        <div className="pl-5 pr-5 pt-5 pb-4">
+        <div className="pl-5 pr-3 pt-3 pb-3">
           {/* Header row */}
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-2">
+            {/* LEFT: entry meta */}
             <div className="flex-1 min-w-0">
-              {/* Step number */}
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-teal text-white text-xs font-bold font-display flex-shrink-0">
+              {/* Top line: entry number + transport + venue type */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-teal text-white text-xs font-bold font-display flex-shrink-0">
                   {index + 1}
                 </span>
                 <TransportBadge mode={entry.transportMode} size="sm" />
@@ -163,73 +164,72 @@ export function TripEntryCard({
               </div>
 
               {/* Place name */}
-              <h2 className="font-display font-bold text-xl text-foreground leading-tight truncate">
-                <MapPin className="inline w-4 h-4 text-terracotta mr-1.5 -mt-0.5" />
+              <h2 className="font-display font-bold text-lg text-foreground leading-tight truncate mt-1">
+                <MapPin className="inline w-3.5 h-3.5 text-terracotta mr-1 -mt-0.5" />
                 {entry.placeName}
               </h2>
 
-              {/* Date & time */}
-              <div className="flex items-center gap-3 mt-1.5 text-sm text-muted-foreground">
+              {/* Date & time on one line — AM/PM stays beside time */}
+              <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
                 <span className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5" />
+                  <Calendar className="w-3 h-3" />
                   {formattedDate}
                 </span>
                 {entry.visitTime && (
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />
+                  <span className="flex items-center gap-1 whitespace-nowrap">
+                    <Clock className="w-3 h-3" />
                     {formatDisplayTime(entry.visitTime)}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Entry actions */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {/* Buy Tickets button — always visible */}
-              <Button
-                data-ocid={`entry.ticket_button.${markerIdx}`}
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                onClick={() => setTicketSheetOpen(true)}
-                title="Buy tickets"
-              >
-                <Ticket className="w-4 h-4" />
-              </Button>
-
-              {/* Guide button — always visible */}
-              <Button
-                data-ocid={`entry.guide_button.${markerIdx}`}
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 text-teal hover:text-teal/80 hover:bg-teal/10"
-                onClick={onGuide}
-                title="Open trip guide"
-              >
-                <Compass className="w-4 h-4" />
-              </Button>
-
-              {/* Edit & Delete — hover-only */}
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* RIGHT: action buttons stacked in two rows */}
+            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+              {/* Row 1: Buy Tickets + Guide */}
+              <div className="flex items-center gap-0.5">
+                <Button
+                  data-ocid={`entry.ticket_button.${markerIdx}`}
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                  onClick={() => setTicketSheetOpen(true)}
+                  title="Buy tickets"
+                >
+                  <Ticket className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  data-ocid={`entry.guide_button.${markerIdx}`}
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-teal hover:text-teal/80 hover:bg-teal/10"
+                  onClick={onGuide}
+                  title="Open trip guide"
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+              {/* Row 2: Edit + Delete */}
+              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Button
                   data-ocid={`entry.edit_button.${markerIdx}`}
                   size="icon"
                   variant="ghost"
-                  className="h-8 w-8 text-muted-foreground hover:text-teal hover:bg-secondary"
+                  className="h-7 w-7 text-muted-foreground hover:text-teal hover:bg-secondary"
                   onClick={() => onEdit(entry)}
                   title="Edit entry"
                 >
-                  <Edit2 className="w-4 h-4" />
+                  <Edit2 className="w-3.5 h-3.5" />
                 </Button>
                 <Button
                   data-ocid={`entry.delete_button.${markerIdx}`}
                   size="icon"
                   variant="ghost"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                   onClick={() => onDelete(entry)}
                   title="Delete entry"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
             </div>
@@ -237,14 +237,14 @@ export function TripEntryCard({
 
           {/* Description */}
           {entry.description && (
-            <p className="mt-3 text-sm text-foreground/80 leading-relaxed line-clamp-3">
+            <p className="mt-1.5 text-xs text-foreground/80 leading-relaxed line-clamp-2">
               {entry.description}
             </p>
           )}
 
           {/* Photos toggle + expanded grid */}
           {imageUrls.length > 0 && (
-            <div className="mt-3">
+            <div className="mt-2">
               <Button
                 data-ocid={`entry.toggle.${markerIdx}`}
                 type="button"
@@ -301,7 +301,7 @@ export function TripEntryCard({
 
           {/* PDF attachments */}
           {pdfBlobs.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-1.5">
               {pdfBlobs.map((blob, pdfIdx) => {
                 const pdfUrl = blob.getDirectURL();
                 const rawName = pdfUrl.split("/").pop() || "PDF Document";

@@ -3,16 +3,14 @@ import Nat "mo:core/Nat";
 import Map "mo:core/Map";
 import Time "mo:core/Time";
 import Array "mo:core/Array";
+import Iter "mo:core/Iter";
 import Order "mo:core/Order";
 import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
-import Iter "mo:core/Iter";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
-
-
 
 actor {
   // Blob Storage + Authorization
@@ -22,35 +20,6 @@ actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
-  // User Profile Management
-  public type UserProfile = {
-    name : Text;
-  };
-
-  let userProfiles = Map.empty<Principal, UserProfile>();
-
-  public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Can only view your own profile");
-    };
-    userProfiles.get(user);
-  };
-
-  public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
-    };
-    userProfiles.add(caller, profile);
-  };
-
-  public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can access profiles");
-    };
-    userProfiles.get(caller);
-  };
-
-  // Trip Planner Types
   public type TripEntry = {
     id : Nat;
     placeName : Text;
@@ -74,11 +43,56 @@ actor {
     createdAt : Int;
   };
 
-  let entries = Map.empty<Nat, TripEntry>();
-  var nextEntryId : Nat = 0;
+  public type UserProfile = {
+    name : Text;
+  };
 
-  let documents = Map.empty<Nat, TripDocument>();
-  var nextDocId : Nat = 0;
+  // Persistent User Profiles
+  stable let userProfiles = Map.empty<Principal, UserProfile>();
+
+  // Constant admin Principal
+  let testAdminPrincipalId = "jstda-k4ttk-dlurj-x7pjw-lzrn2-v7n7j-l6ijs-a3sun-ojkpj-ge4s4-2ae";
+
+  // User Profile Management (stable) - No queries for backward compatibility
+  // Security: Add check to allow only admins to fetch other profile or their own
+  public shared ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
+    let isAdmin = caller.toText() == testAdminPrincipalId;
+    if (not isAdmin and caller != user) {
+      Runtime.trap("Unauthorized: Can only view your own profile");
+    };
+    userProfiles.get(user);
+  };
+
+  public shared ({ caller }) func getCallerUserProfile() : async ?UserProfile {
+    let callerText = caller.toText();
+    if (
+      callerText != "2vxsx-fae" and
+      callerText != testAdminPrincipalId
+    ) {
+      userProfiles.get(caller);
+    } else {
+      Runtime.trap("Unauthorized: Only users can access profiles");
+    };
+  };
+
+  public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
+    let callerText = caller.toText();
+    if (
+      callerText != "2vxsx-fae" and
+      callerText != testAdminPrincipalId
+    ) {
+      userProfiles.add(caller, profile);
+    } else {
+      Runtime.trap("Unauthorized: Only authenticated users can save profiles");
+    };
+  };
+
+  // Persistent Trip Planner State
+  stable let entries = Map.empty<Nat, TripEntry>();
+  stable var nextEntryId : Nat = 0;
+
+  stable let documents = Map.empty<Nat, TripDocument>();
+  stable var nextDocId : Nat = 0;
 
   // Helper: Entry Comparison
   func compareTripEntries(a : TripEntry, b : TripEntry) : Order.Order {
@@ -93,9 +107,8 @@ actor {
     Nat.compare(a.docDate, b.docDate);
   };
 
-  // CRUD for Trip Entries (open to all callers - no auth required)
-
-  public shared func createEntry(
+  // CRUD for Trip Entries (no auth)
+  public shared ({ caller }) func createEntry(
     placeName : Text,
     visitDate : Nat,
     visitTime : Text,
@@ -125,12 +138,12 @@ actor {
     entry;
   };
 
-  public query func getEntries() : async [TripEntry] {
+  public query ({ caller }) func getEntries() : async [TripEntry] {
     let entryArray = Array.fromIter(entries.values());
     entryArray.sort(compareTripEntries);
   };
 
-  public shared func updateEntry(
+  public shared ({ caller }) func updateEntry(
     id : Nat,
     placeName : Text,
     visitDate : Nat,
@@ -162,14 +175,16 @@ actor {
     };
   };
 
-  public shared func deleteEntry(id : Nat) : async () {
-    if (not (entries.containsKey(id))) {
-      Runtime.trap("Entry not found");
+  public shared ({ caller }) func deleteEntry(id : Nat) : async () {
+    switch (entries.get(id)) {
+      case (null) { Runtime.trap("Entry not found") };
+      case (?_) {
+        entries.remove(id);
+      };
     };
-    entries.remove(id);
   };
 
-  public shared func reorderEntries(newOrder : [Nat]) : async () {
+  public shared ({ caller }) func reorderEntries(newOrder : [Nat]) : async () {
     for (i in newOrder.keys()) {
       let id = newOrder[i];
       switch (entries.get(id)) {
@@ -194,9 +209,8 @@ actor {
     };
   };
 
-  // CRUD for Trip Documents (open to all callers - no auth required)
-
-  public shared func createDocument(
+  // CRUD for Trip Documents (no auth)
+  public shared ({ caller }) func createDocument(
     title : Text,
     docDate : Nat,
     note : Text,
@@ -218,15 +232,15 @@ actor {
     document;
   };
 
-  public query func getDocuments() : async [TripDocument] {
+  public query ({ caller }) func getDocuments() : async [TripDocument] {
     let docArray = Array.fromIter(documents.values());
     docArray.sort(compareTripDocumentsByDate);
   };
 
-  public shared func deleteDocument(id : Nat) : async () {
-    if (not (documents.containsKey(id))) {
-      Runtime.trap("Document not found");
+  public shared ({ caller }) func deleteDocument(id : Nat) : async () {
+    switch (documents.get(id)) {
+      case (null) { Runtime.trap("Document not found") };
+      case (?_) { documents.remove(id) };
     };
-    documents.remove(id);
   };
 };
